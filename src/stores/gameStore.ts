@@ -3,8 +3,9 @@ import { ref } from 'vue';
 import { cardService } from '@/services/cardService';
 import { db } from '@/firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
+import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
 import { State, Result } from '@/models/models';
+import { useRouter } from 'vue-router';
 
 export const useGameStore = defineStore('gameStore', () => {
   const state = ref<State>({
@@ -19,6 +20,16 @@ export const useGameStore = defineStore('gameStore', () => {
 
   const auth = getAuth();
   let stateLoaded = false;
+  const router = useRouter();
+
+  const  login = async (email:string, password:string)=> {
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      router.push({ path: '/game' });
+    } catch (error) {
+      console.error('Login failed', error);
+    }
+  }
 
   const initializeCards = async (gridSize: number) => {
     if (stateLoaded && state.value.cards.length && state.value.gridSize === gridSize) return;
@@ -116,7 +127,9 @@ export const useGameStore = defineStore('gameStore', () => {
       }
     }
     stateLoaded = true;
+    console.log(stateLoaded)
   };
+  
 
   const fetchResults = async () => {
     if (auth.currentUser) {
@@ -132,6 +145,7 @@ export const useGameStore = defineStore('gameStore', () => {
 
   return {
     state,
+    login,
     initializeCards,
     handleCardClick,
     resetState,

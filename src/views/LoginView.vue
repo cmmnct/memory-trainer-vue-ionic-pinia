@@ -16,21 +16,14 @@
   
   <script lang="ts" setup>
   import { ref } from 'vue';
-  import { useRouter } from 'vue-router';
-  import { signInWithEmailAndPassword } from 'firebase/auth';
-  import { auth } from '@/firebase';
+  import { useGameStore } from '@/stores/gameStore';
   
   const email = ref('');
   const password = ref('');
-  const router = useRouter();
+  const gameStore = useGameStore()
   
   async function login() {
-    try {
-      await signInWithEmailAndPassword(auth, email.value, password.value);
-      router.push({ path: '/game' });
-    } catch (error) {
-      console.error('Login failed', error);
-    }
+    await gameStore.login(email.value, password.value)
   }
   </script>
   
