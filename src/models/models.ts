@@ -1,3 +1,5 @@
+import { User } from "firebase/auth";
+
 export interface Card {
     name: string;
     set: string;
@@ -12,6 +14,7 @@ export interface Card {
   }
   
   export interface State {
+    user: User | null;
     firstCard: Card | null;
     secondCard: Card | null;
     lockBoard: boolean;
@@ -19,6 +22,7 @@ export interface Card {
     gridSize: number;
     cards: Card[];
     results: Result[];
+    stateLoaded:boolean
   }
   
   export interface CardSet {

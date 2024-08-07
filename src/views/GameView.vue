@@ -3,87 +3,40 @@
       <ion-header>
         <ion-toolbar>
           <ion-title>Memory Game</ion-title>
-          <ion-buttons slot="end">
-            <ion-button @click="openUserSettings">
-              <ion-icon slot="icon-only" name="person-circle-outline"></ion-icon>
-            </ion-button>
-            <ion-button @click="selectGridSize">
-              <ion-icon slot="icon-only" name="grid-outline"></ion-icon>
-            </ion-button>
-            <ion-button @click="showStatistics">
-              <ion-icon slot="icon-only" name="bar-chart-outline"></ion-icon>
-            </ion-button>
-          </ion-buttons>
         </ion-toolbar>
       </ion-header>
-      <ion-content class="ion-padding">
-        <div v-if="loading" class="loading">
-          <ion-spinner />
-        </div>
-        <div class="game-grid">
+      <ion-content>
+        <div v-if="gameStore.stateLoaded" class="game-grid">
           <CardComponent 
-            v-for="(card, index) in state.cards" 
+            v-for="(card, index) in gameStore.$state.cards" 
             :key="`${card.set}-${card.name}-${index}`"
             :card="card"
-            :class="`grid${state.gridSize}`"
+            :class="`grid${gameStore.$state.gridSize}`"
             @click="handleCardClick(index)" 
           />
         </div>
+        <ion-spinner v-else />
       </ion-content>
-  
-  
     </ion-page>
   </template>
   
-  <script lang="ts" setup>
-  import { ref, onMounted, computed, watch } from 'vue';
-  import { useRoute, useRouter } from 'vue-router';
+  <script setup>
+  import { ref, onMounted } from 'vue';
   import { useGameStore } from '@/stores/gameStore';
   import CardComponent from '@/components/CardComponent.vue';
-
   
-  const route = useRoute();
-  const router = useRouter();
   const gameStore = useGameStore();
   const loading = ref(true);
-  const showUserSettings = ref(false);
-  const showGridSizeSelector = ref(false);
   
-  async function initializeGame() {
-    if (!gameStore.stateLoaded) {
-      await gameStore.loadState();
-    }
-    if (!gameStore.state.cards.length) {
-      await gameStore.initializeCards(gameStore.state.gridSize || 16);
-    }
-    loading.value = false;
-  }
-  
-  function handleCardClick(index: number) {
+  const handleCardClick = (index) => {
     gameStore.handleCardClick(index);
-  }
-  
-  function openUserSettings() {
-    showUserSettings.value = true;
-  }
-  
-  function selectGridSize() {
-    showGridSizeSelector.value = true;
-  }
-  
-  function showStatistics() {
-    router.push('/statistics');
-  }
+  };
   
   onMounted(async () => {
-    await initializeGame();
+    await gameStore.loadState();
+    loading.value = false;
+    console.log('GameView loaded state:', gameStore.$state);
   });
-  
-  watch(route, async () => {
-    await initializeGame();
-  });
-  
-  const state = computed(() => gameStore.state);
   </script>
   
   <style scoped>
@@ -113,4 +66,3 @@
     max-width: calc(16.6666% - 2vw);
   }
   </style>
-  

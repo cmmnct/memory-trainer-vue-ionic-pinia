@@ -17,13 +17,18 @@
   <script lang="ts" setup>
   import { ref } from 'vue';
   import { useGameStore } from '@/stores/gameStore';
+  import {useRouter} from 'vue-router';
   
   const email = ref('');
   const password = ref('');
   const gameStore = useGameStore()
-  
+  const router = useRouter();
+
   async function login() {
-    await gameStore.login(email.value, password.value)
+    const success = await gameStore.login(email.value, password.value);
+    if (success) {
+    router.push({ path: '/game' });
+  }
   }
   </script>
   
