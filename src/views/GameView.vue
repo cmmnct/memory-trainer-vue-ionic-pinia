@@ -6,12 +6,12 @@
         </ion-toolbar>
       </ion-header>
       <ion-content>
-        <div v-if="gameStore.stateLoaded" class="game-grid">
+        <div v-if="gameStore.state" class="game-grid">
           <CardComponent 
-            v-for="(card, index) in gameStore.$state.cards" 
+            v-for="(card, index) in gameStore.state.cards" 
             :key="`${card.set}-${card.name}-${index}`"
             :card="card"
-            :class="`grid${gameStore.$state.gridSize}`"
+            :class="`grid${gameStore.state.gridSize}`"
             @click="handleCardClick(index)" 
           />
         </div>
@@ -35,7 +35,7 @@
   onMounted(async () => {
     await gameStore.loadState();
     loading.value = false;
-    console.log('GameView loaded state:', gameStore.$state);
+    console.log('GameView loaded state:', gameStore.state);
   });
   </script>
   
