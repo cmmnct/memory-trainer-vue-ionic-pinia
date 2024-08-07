@@ -3,7 +3,7 @@ import { ref } from 'vue';
 import { cardService } from '@/services/cardService';
 import { db } from '@/firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
-import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { State, Result } from '@/models/models';
 import { useRouter } from 'vue-router';
 
@@ -28,6 +28,16 @@ export const useGameStore = defineStore('gameStore', () => {
       router.push({ path: '/game' });
     } catch (error) {
       console.error('Login failed', error);
+    }
+  }
+
+  const signUp = async (email:string, password:string) => {
+    try {
+      await console.log(email);
+      await createUserWithEmailAndPassword(auth, email, password);
+      router.push({ path: '/game' });
+    } catch (error) {
+      console.error('Signup failed', error);
     }
   }
 
@@ -146,6 +156,7 @@ export const useGameStore = defineStore('gameStore', () => {
   return {
     state,
     login,
+    signUp,
     initializeCards,
     handleCardClick,
     resetState,

@@ -16,22 +16,16 @@
   
   <script lang="ts" setup>
   import { ref } from 'vue';
-  import { useRouter } from 'vue-router';
-  import { createUserWithEmailAndPassword } from 'firebase/auth';
-  import { auth } from '@/firebase';
+  import { useGameStore } from '@/stores/gameStore';
   
   const email = ref('');
   const password = ref('');
-  const router = useRouter();
+  const gameStore = useGameStore()
   
   async function signUp() {
-    try {
-      await console.log(email.value);
-      await createUserWithEmailAndPassword(auth, email.value, password.value);
-      router.push({ path: '/game' });
-    } catch (error) {
-      console.error('Signup failed', error);
-    }
+    await gameStore.signUp(email.value, password.value)
   }
+  
+  
   </script>
   
