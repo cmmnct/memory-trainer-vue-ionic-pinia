@@ -43,9 +43,8 @@
   .game-grid {
     display: flex;
     flex-wrap: wrap;
-    max-height: 85vh;
-    max-width: 100vw;
-    aspect-ratio: 1/1;
+    width:100vw;
+    max-width: 900px;
     margin: auto;
     justify-content: center;
   }

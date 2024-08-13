@@ -2,9 +2,7 @@
     <div class="card" :class="{ exposed: card.exposed }">
       <div class="card-inner">
         <div class="card-front"></div>
-        <div class="card-back">
-          <img :src="`/assets/img/${card.set}.webp`" :alt="card.name" />
-        </div>
+        <div class="card-back"><img :src="`/assets/img/${card.set}.webp`" :alt="card.name" /></div>
       </div>
     </div>
   </template>
