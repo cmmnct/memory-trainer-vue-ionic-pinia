@@ -2,9 +2,17 @@ import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { cardService } from '@/services/cardService';
 import { db } from '@/firebase';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, query, where, getDocs, collection, onSnapshot, updateDoc, arrayUnion } from 'firebase/firestore';
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged } from 'firebase/auth';
-import { State, Result, Card } from '@/models/models';
+import { State, Result, Card, Invitation } from '@/models/models';
+
+
+export const searchPlayer = async (username: string) => {
+  console.log(username)
+  const q = query(collection(db, 'users'), where('username', '==', username));
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(doc => doc.data());
+};
 
 export const useGameStore = defineStore('gameStore', () => {
   const state = ref<State>({
@@ -17,6 +25,7 @@ export const useGameStore = defineStore('gameStore', () => {
     cards: [],
     results: [],
     stateLoaded: false,
+    invitations: []
   });
 
   const auth = getAuth();
@@ -24,6 +33,8 @@ export const useGameStore = defineStore('gameStore', () => {
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      console.log('User after login:', userCredential.user); // Controleer of de user correct is
+
       state.value.user = userCredential.user;
       return true;
     } catch (error) {
@@ -32,15 +43,91 @@ export const useGameStore = defineStore('gameStore', () => {
     }
   };
 
-  const signUp = async (email: string, password: string): Promise<boolean> => {
+  const signUp = async (email: string, user: string, password: string): Promise<boolean> => {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       state.value.user = userCredential.user;
+      await setDoc(doc(db, 'users', state.value.user.uid), {
+        id: state.value.user.uid,
+        username: user,
+        email: email,
+        invitations: {
+          pending: [],
+          played: [],
+          cancelled: [],
+          rejected: [],
+        }
+      });
       return true;
+
     } catch (error) {
       console.error('Signup failed', error);
       return false;
     }
+  };
+
+  const listenForInvitations = (userId: string) => {
+    const userDocRef = doc(db, `users/${userId}`);
+    
+    onSnapshot(userDocRef, (docSnapshot) => {
+      if (docSnapshot.exists()) {
+        const data = docSnapshot.data();
+        console.log('Document data:', data);
+  
+        // Controleer of invitations een map/object is
+        const invitationsMap = data.invitations || {};
+  
+        // Converteer de map naar een array van objecten
+        const invitations = Object.keys(invitationsMap).map(key => {
+          const invitation = invitationsMap[key];
+          return {
+            id: key, // Gebruik de key als ID voor elke invitation
+            ...invitation,
+            createdAt: invitation.createdAt ? invitation.createdAt.toDate() : null,
+          };
+        });
+  
+        state.value.invitations = invitations;
+        console.log('Updated invitations:', state.value.invitations);
+      } else {
+        console.log('No such document!');
+      }
+    });
+  };
+  
+
+  // Methode om een uitnodiging te accepteren
+  const acceptInvitation = async (userId: string, invitationId: string) => {
+    const invitationRef = doc(db, `users/${userId}/invitations`, invitationId);
+
+    await updateDoc(invitationRef, {
+      status: 'accepted',
+    });
+
+    console.log("start nu het spel")
+  };
+
+  // Methode om een uitnodiging te weigeren
+  const rejectInvitation = async (userId: string, invitationId: string) => {
+    const invitationRef = doc(db, `users/${userId}/invitations`, invitationId);
+
+    await updateDoc(invitationRef, {
+      status: 'rejected',
+    });
+  };
+
+  // Methode om een uitnodiging te versturen
+  const sendInvitation = async (fromPlayerId: string, toPlayerId: string) => {
+    const invitation: Invitation = {
+      id: crypto.randomUUID(),
+      fromPlayerId,
+      toPlayerId,
+      status: 'pending',
+      createdAt: new Date(),
+    };
+
+    const toPlayerRef = doc(db, `users/${toPlayerId}`);
+    await setDoc(toPlayerRef, { invitations: arrayUnion(invitation) }, { merge: true });
   };
 
   const initializeCards = async (gridSize: number) => {
@@ -58,9 +145,7 @@ export const useGameStore = defineStore('gameStore', () => {
   const handleCardClick = (index: number) => {
     const clickedCard = state.value.cards[index];
     if (state.value.lockBoard || clickedCard === state.value.firstCard || clickedCard.exposed) return;
-
     clickedCard.exposed = true;
-
     if (!state.value.firstCard) {
       state.value.firstCard = clickedCard;
       saveState();
@@ -168,5 +253,10 @@ export const useGameStore = defineStore('gameStore', () => {
     loadState,
     fetchResults,
     isStateLoaded,
+    searchPlayer,
+    sendInvitation,
+    listenForInvitations,
+    acceptInvitation,
+    rejectInvitation,
   };
 });

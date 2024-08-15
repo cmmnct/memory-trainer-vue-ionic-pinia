@@ -47,6 +47,7 @@ router.isReady().then(() => {
 
 // Import individual Ionic components
 import { IonButtons, IonIcon, IonList, IonItem, IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonButton, IonInput, IonSelect, IonSelectOption, IonGrid, IonRow, IonCol, IonSpinner, IonModal,IonLabel, IonDatetime, IonAvatar } from '@ionic/vue';
+import { IonCard, IonCardHeader, IonCardTitle, IonCardContent } from '@ionic/vue';
 
 
 // Register Ionic components globally
@@ -72,6 +73,10 @@ app.component('ion-modal', IonModal);
 app.component('ion-label', IonLabel);
 app.component('ion-datetime', IonDatetime);
 app.component('ion-avatar', IonAvatar);
+app.component('ion-card', IonCard);
+app.component('ion-card-header', IonCardHeader);
+app.component('ion-card-title', IonCardTitle);
+app.component('ion-card-content', IonCardContent);
 
 import { addIcons } from 'ionicons';
 import { personCircleOutline, gridOutline, barChartOutline } from 'ionicons/icons';
