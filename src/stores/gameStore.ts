@@ -69,19 +69,6 @@ export const useGameStore = defineStore('gameStore', () => {
     }
   };
   
-
-  const login = (email: string, password: string): Promise<boolean> => {
-    return handleAuthentication('login', email, password);
-  };
-
-  const signUp = (email: string, password: string): Promise<boolean> => {
-    return handleAuthentication('signup', email, password);
-  };
-
-  const logout = (): Promise<boolean> => {
-    return handleAuthentication('logout');
-  };
-
   onAuthStateChanged(auth, (currentUser) => {
     handleAuthentication('authChange', undefined, undefined, currentUser);
   });
@@ -226,8 +213,6 @@ export const useGameStore = defineStore('gameStore', () => {
 
   return {
     state,
-    login,
-    signUp,
     initializeCards,
     handleCardClick,
     resetState,
@@ -235,7 +220,6 @@ export const useGameStore = defineStore('gameStore', () => {
     saveState,
     loadState,
     fetchResults,
-    logout,
     user,
     userCredentials,
     loadUserProfile,
