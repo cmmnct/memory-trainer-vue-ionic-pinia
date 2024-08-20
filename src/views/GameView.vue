@@ -4,7 +4,7 @@
       <ion-toolbar>
         <ion-title>Memory Game</ion-title>
         <ion-buttons slot="end">
-          <ion-button @click="isSettingsOpen = true">
+          <ion-button @click="logout">
             <ion-icon slot="icon-only" name="person-circle-outline"></ion-icon>
           </ion-button>
           <ion-button @click="showGridSizeSelector = true">
@@ -22,13 +22,7 @@
       <ion-spinner v-else />
     </ion-content>
     <!-- Modals -->
-    <UserSettingsComponent
-    :isOpen="isSettingsOpen"
-    :userCredentials="gameStore.userCredentials"
-    @close="isSettingsOpen = false"
-    @UpdateProfile="updateUserProfile"
-    :onLogout="logout"
-  />
+    
     <!-- gridSizeSelector -->
     <ion-modal :is-open="showGridSizeSelector" @didDismiss="showGridSizeSelector = false">
       <ion-header>
@@ -54,34 +48,17 @@
 import { ref, onMounted} from 'vue';
 import { useGameStore } from '@/stores/gameStore';
 import CardComponent from '@/components/CardComponent.vue';
-import UserSettingsComponent from '@/components/UserSettingsComponent.vue';
 import { useRouter } from 'vue-router';
-import { UserCredentials } from '../models/models'
-  
-const router = useRouter();
-  
 
+const router = useRouter();
 const gameStore = useGameStore();
 const loading = ref(true);
 const showGridSizeSelector = ref(false);
-const isSettingsOpen = ref(false);
-
-
-async function updateUserProfile(updatedCredentials: UserCredentials, avatarFile: File | null) {
-  console.log('GameView is calling GameStore updateUserProfile with:', updatedCredentials, avatarFile);
-  try {
-    await gameStore.updateUserProfile(updatedCredentials, avatarFile);
-    console.log('UpdateUserProfile successfully executed');
-  } catch (error) {
-    console.error('Failed to execute updateUserProfile:', error);
-  }
-}
-
 
 async function logout() {
-  const success = await gameStore.logout();
+  const success = await gameStore.handleAuthentication('logout');
   if (success) {
-    router.push({ path: '/login' });
+    router.push('/login'); // Navigeer terug naar het login-scherm na uitloggen
   }
 }
 
@@ -95,7 +72,6 @@ async function handleGridSizeChange(size: number) {
   await gameStore.initializeCards(size);
   loading.value = false;
 }
-
 
 onMounted(async () => {
   await gameStore.loadState();

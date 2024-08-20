@@ -1,11 +1,10 @@
 import { defineStore } from 'pinia';
 import { ref, reactive } from 'vue';
 import { cardService } from '@/services/cardService';
-import { db, storage, auth } from '@/firebase';
-import { doc, setDoc, getDoc, updateDoc, onSnapshot } from 'firebase/firestore';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, updateProfile as firebaseUpdateProfile } from 'firebase/auth';
+import { db, auth } from '@/firebase';
+import { doc, setDoc, getDoc, onSnapshot } from 'firebase/firestore';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged } from 'firebase/auth';
 import { State, Result, UserCredentials } from '@/models/models';
-import { uploadBytes, getDownloadURL, ref as firebaseStorageRef } from 'firebase/storage';
 
 export const useGameStore = defineStore('gameStore', () => {
   const state = reactive<State>({
@@ -26,20 +25,66 @@ export const useGameStore = defineStore('gameStore', () => {
     avatarUrl: '',
   });
   const defaultBirthdate = new Date().toISOString().substring(0, 10);
-  const handleAuthChange = async (currentUser: any) => {
-    if (currentUser) {
-      user.value = currentUser;
-      await loadUserProfile();
-      await loadState();
-    } else {
-      user.value = null;
-      resetState();
-      state.stateLoaded = false;
+
+  const handleAuthentication = async (action: 'login' | 'signup' | 'logout' | 'authChange', email?: string, password?: string, currentUser?: any): Promise<boolean> => {
+    try {
+      let userCredential: any = null;
+  
+      switch (action) {
+        case 'login':
+          userCredential = await signInWithEmailAndPassword(auth, email!, password!);
+          break;
+        
+        case 'signup':
+          userCredential = await createUserWithEmailAndPassword(auth, email!, password!);
+          break;
+        
+        case 'logout':
+          await auth.signOut();
+          currentUser = null;
+          break;
+        
+        case 'authChange':
+          currentUser = currentUser || null; // Houd rekening met het ontbreken van currentUser
+          break;
+        
+        default:
+          throw new Error('Invalid auth action');
+      }
+  
+      if (currentUser || userCredential) {
+        user.value = currentUser || userCredential.user;
+        await loadUserProfile();
+        await loadState();
+      } else {
+        user.value = null;
+        resetState();
+        state.stateLoaded = false;
+      }
+  
+      return true;
+    } catch (error) {
+      console.error(`Authentication action "${action}" failed`, error);
+      return false;
     }
   };
+  
 
-  //event handler van Firebase die 'vuurt' als er iets verandert in de authorisatie van de gebruiker
-  onAuthStateChanged(auth, handleAuthChange);
+  const login = (email: string, password: string): Promise<boolean> => {
+    return handleAuthentication('login', email, password);
+  };
+
+  const signUp = (email: string, password: string): Promise<boolean> => {
+    return handleAuthentication('signup', email, password);
+  };
+
+  const logout = (): Promise<boolean> => {
+    return handleAuthentication('logout');
+  };
+
+  onAuthStateChanged(auth, (currentUser) => {
+    handleAuthentication('authChange', undefined, undefined, currentUser);
+  });
 
   const setUserProfile = (data: any) => {
     userCredentials.displayName = auth.currentUser?.displayName || '';
@@ -73,87 +118,6 @@ export const useGameStore = defineStore('gameStore', () => {
         setUserProfile(doc.data());
       }
     });
-  };
-
-  const updateUserProfile = async (updatedCredentials: UserCredentials, avatarFile: File | null) => {
-    console.log(avatarFile)
-    if (auth.currentUser) {
-      const userDocRef = doc(db, 'users', auth.currentUser.uid);
-  
-      let avatarUrl = updatedCredentials.avatarUrl;
-  
-      // Als er een nieuwe avatar is geselecteerd, upload deze naar Firebase Storage
-      if (avatarFile) {
-        console.log("Bezig met uploaden van nieuwe avatar...");
-        const avatarStorageRef = firebaseStorageRef(storage, `avatars/${auth.currentUser.uid}`);
-        await uploadBytes(avatarStorageRef, avatarFile);
-        avatarUrl = await getDownloadURL(avatarStorageRef);
-        console.log("Avatar geüpload naar:", avatarUrl);
-      }
-  
-      // Update Firestore met displayName, birthdate en de nieuwe avatarUrl
-      const updates: Partial<UserCredentials> = {
-        displayName: updatedCredentials.displayName,
-        birthdate: updatedCredentials.birthdate,
-        avatarUrl: avatarUrl, // Gebruik de nieuwe URL als deze is geüpload
-      };
-  
-      await updateDoc(userDocRef, updates);
-  
-      // Update de displayName in Firebase Auth indien nodig
-      if (updatedCredentials.displayName) {
-        await firebaseUpdateProfile(auth.currentUser, { displayName: updatedCredentials.displayName });
-      }
-  
-      // Profiel opnieuw laden om state up-to-date te houden
-      await loadUserProfile();
-    } else {
-      console.error("Geen gebruiker ingelogd.");
-    }
-  };
-  
-  const login = async (email: string, password: string): Promise<boolean> => {
-    try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      handleAuthChange(userCredential.user);
-      return true;
-    } catch (error) {
-      console.error('Login failed', error);
-      return false;
-    }
-  };
-
-  const logout = async (): Promise<boolean> => {
-    try {
-      await auth.signOut();
-      handleAuthChange(null);
-      return true;
-    } catch (error) {
-      console.error('Logout failed', error);
-      return false;
-    }
-  };
-
-  const signUp = async (email: string, password: string): Promise<boolean> => {
-    try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      handleAuthChange(userCredential.user);
-      return true;
-    } catch (error) {
-      console.error('Signup failed', error);
-      return false;
-    }
-  };
-
-  const uploadAvatarFile = async (uid: string, file: File): Promise<string> => {
-    try {
-      const storageRef = firebaseStorageRef(storage, `avatars/${uid}`);
-      await uploadBytes(storageRef, file);
-      return await getDownloadURL(storageRef);
-    } catch (error) {
-      console.error('Failed to upload avatar:', error);
-      throw error;
-    }
   };
 
   const initializeCards = async (gridSize: number) => {
@@ -271,11 +235,10 @@ export const useGameStore = defineStore('gameStore', () => {
     saveState,
     loadState,
     fetchResults,
-    updateUserProfile,
     logout,
     user,
     userCredentials,
     loadUserProfile,
-    uploadAvatarFile,
+    handleAuthentication
   };
 });

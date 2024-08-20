@@ -12,6 +12,7 @@
               <ion-input placeholder="E-mail" type="email" v-model="email" label="Mailadres: "></ion-input>
               <ion-input placeholder="Wachtwoord" type="password" v-model="password" label="Wachtwoord: "></ion-input>
               <ion-button @click="signUp">Aanmelden</ion-button>
+              <p v-if="error">{{ error }}</p>
             </ion-card-content>
           </ion-card>
         </ion-col>
@@ -32,11 +33,14 @@ const email = ref('');
 const password = ref('');
 const gameStore = useGameStore()
 const router = useRouter();
+const error = ref('');
 
 async function signUp() {
-  const success = await gameStore.signUp(email.value, password.value);
+  const success = await gameStore.handleAuthentication('signup', email.value, password.value);
   if (success) {
-    router.push({ path: '/game' });
+    router.push('/game'); // Navigeer naar de welkomstpagina na succesvol registreren
+  } else {
+    error.value = 'Signup failed. Please try again.';
   }
 }
 </script>
