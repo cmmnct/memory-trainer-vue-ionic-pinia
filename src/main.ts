@@ -2,7 +2,6 @@ import { createApp } from 'vue'
 import App from './App.vue'
 import router from './router';
 import { createPinia } from 'pinia';
-import { IonicVue } from '@ionic/vue';
 
 /* Core CSS required for Ionic components to work properly */
 import '@ionic/vue/css/core.css';
@@ -46,8 +45,7 @@ router.isReady().then(() => {
 });
 
 // Import individual Ionic components
-import { IonButtons, IonIcon, IonList, IonItem, IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonButton, IonInput, IonSelect, IonSelectOption, IonGrid, IonRow, IonCol, IonSpinner, IonModal,IonLabel, IonDatetime, IonAvatar } from '@ionic/vue';
-
+import { IonicVue, IonInputPasswordToggle, IonButtons, IonIcon, IonList, IonItem, IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonButton, IonInput, IonSelect, IonSelectOption, IonGrid, IonRow, IonCol, IonSpinner, IonModal, IonLabel, IonDatetime, IonDatetimeButton, IonAvatar } from '@ionic/vue';
 
 // Register Ionic components globally
 
@@ -62,6 +60,7 @@ app.component('ion-title', IonTitle);
 app.component('ion-content', IonContent);
 app.component('ion-button', IonButton);
 app.component('ion-input', IonInput);
+app.component('ion-input-password-toggle', IonInputPasswordToggle);
 app.component('ion-select', IonSelect);
 app.component('ion-select-option', IonSelectOption);
 app.component('ion-grid', IonGrid);
@@ -71,6 +70,7 @@ app.component('ion-spinner', IonSpinner);
 app.component('ion-modal', IonModal);
 app.component('ion-label', IonLabel);
 app.component('ion-datetime', IonDatetime);
+app.component('ion-datetime-button', IonDatetimeButton);
 app.component('ion-avatar', IonAvatar);
 
 import { addIcons } from 'ionicons';

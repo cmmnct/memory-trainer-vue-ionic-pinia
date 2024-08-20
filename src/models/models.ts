@@ -1,5 +1,3 @@
-import { User } from "firebase/auth";
-
 export interface Card {
     name: string;
     set: string;
@@ -14,7 +12,6 @@ export interface Card {
   }
   
   export interface State {
-    user: User | null;
     firstCard: Card | null;
     secondCard: Card | null;
     lockBoard: boolean;
@@ -29,4 +26,10 @@ export interface Card {
     set: string;
     card1?: string;
     card2?: string;
+  }
+  export interface UserCredentials {
+    displayName: string;
+    password: string;
+    birthdate: string;
+    avatarUrl: string;
   }

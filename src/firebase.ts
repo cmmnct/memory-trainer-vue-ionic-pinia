@@ -3,8 +3,6 @@ import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
-
-
 const firebaseConfig = {
     apiKey: "AIzaSyDMBclQnPZrcNsevFZ0IYgTMC_0yzv-74w",
     authDomain: "memory-game-10538.firebaseapp.com",
@@ -20,6 +18,13 @@ export const db = getFirestore(app);
 export const storage = getStorage(app);
 
 // Stel de persistentie in (local storage)
-setPersistence(auth, browserLocalPersistence).catch((error) => {
+setPersistence(auth, browserLocalPersistence)
+  .then(() => {
+    console.log('Firebase Auth persistence is set to local');
+  })
+  .catch((error) => {
     console.error('Failed to set persistence:', error);
   });
+
+
+console.log('Current user at start:', auth.currentUser);
