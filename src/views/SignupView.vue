@@ -6,37 +6,41 @@
           <ion-card>
             <ion-card-header>
               <ion-card-title>Aanmelden</ion-card-title>
-              <ion-card-subtitle>maak een account aan om uw gegevens en spelvoortgang bij te houden</ion-card-subtitle>
+              <ion-card-subtitle>Meld u aan om een account aan te maken en uw voortgang bij te houden</ion-card-subtitle>
             </ion-card-header>
             <ion-card-content>
               <ion-input placeholder="E-mail" type="email" v-model="email" label="Mailadres: "></ion-input>
               <ion-input placeholder="Wachtwoord" type="password" v-model="password" label="Wachtwoord: "></ion-input>
-              <ion-button @click="signUp">Aanmelden</ion-button>
+              <ion-button @click="login">Aanmelden</ion-button>  
+              <p v-if="error">{{ error }}</p>
             </ion-card-content>
           </ion-card>
         </ion-col>
 
       </ion-row>
     </ion-grid>
-
   </ion-page>
 </template>
+  
+  <script lang="ts" setup>
+  import { ref } from 'vue';
+  import { useGameStore } from '@/stores/gameStore';
+  import {useRouter} from 'vue-router';
+  
+  const email = ref('');
+  const password = ref('');
+  const gameStore = useGameStore()
+  const router = useRouter();
+  const error = ref<string>('');
 
-<script lang="ts" setup>
-import { ref } from 'vue';
-import { useGameStore } from '@/stores/gameStore';
-import { useRouter } from 'vue-router';
-
-
-const email = ref('');
-const password = ref('');
-const gameStore = useGameStore()
-const router = useRouter();
-
-async function signUp() {
-  const success = await gameStore.signUp(email.value, password.value);
+  async function login() {
+  const success = await gameStore.handleAuthentication('login', email.value, password.value);
   if (success) {
-    router.push({ path: '/game' });
+    router.push('/game'); // Navigeer naar het spel na succesvol inloggen
+  } else {
+    error.value = 'Aanmelden mislukt. Gebruik een geldig, nog niet geregistreerd mailadres en vul een wachtwoord in. ';
   }
 }
-</script>
+
+  </script>
+  

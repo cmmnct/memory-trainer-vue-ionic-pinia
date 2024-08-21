@@ -11,7 +11,8 @@
             <ion-card-content>
               <ion-input placeholder="E-mail" type="email" v-model="email" label="Mailadres: "></ion-input>
               <ion-input placeholder="Wachtwoord" type="password" v-model="password" label="Wachtwoord: "></ion-input>
-              <ion-button @click="login">Inloggen</ion-button>
+              <ion-button @click="login">Inloggen</ion-button>  
+              <p v-if="error">{{ error }}</p>
             </ion-card-content>
           </ion-card>
         </ion-col>
@@ -30,12 +31,16 @@
   const password = ref('');
   const gameStore = useGameStore()
   const router = useRouter();
+  const error = ref<string>('');
 
   async function login() {
-    const success = await gameStore.login(email.value, password.value);
-    if (success) {
-    router.push({ path: '/game' });
+  const success = await gameStore.handleAuthentication('login', email.value, password.value);
+  if (success) {
+    router.push('/game'); // Navigeer naar het spel na succesvol inloggen
+  } else {
+    error.value = 'Login failed. Please check your credentials.';
   }
-  }
+}
+
   </script>
   

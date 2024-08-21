@@ -3,9 +3,11 @@ import { ref, reactive } from 'vue';
 import { cardService } from '@/services/cardService';
 import { db, storage, auth } from '@/firebase';
 import { doc, setDoc, getDoc, updateDoc, onSnapshot } from 'firebase/firestore';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, updateProfile as firebaseUpdateProfile } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged} from 'firebase/auth';
 import { State, Result, UserCredentials } from '@/models/models';
 import { uploadBytes, getDownloadURL, ref as firebaseStorageRef } from 'firebase/storage';
+import { EmailAuthProvider, reauthenticateWithCredential, updatePassword as firebaseUpdatePassword } from 'firebase/auth';
+
 
 export const useGameStore = defineStore('gameStore', () => {
   const state = reactive<State>({
@@ -21,25 +23,59 @@ export const useGameStore = defineStore('gameStore', () => {
   const user = ref(auth.currentUser);
   const userCredentials = reactive<UserCredentials>({
     displayName: '',
-    password: '',
+    oldPassword: '',
+    newPassword: '',
     birthdate: '',
     avatarUrl: '',
   });
   const defaultBirthdate = new Date().toISOString().substring(0, 10);
-  const handleAuthChange = async (currentUser: any) => {
-    if (currentUser) {
-      user.value = currentUser;
-      await loadUserProfile();
-      await loadState();
-    } else {
-      user.value = null;
-      resetState();
-      state.stateLoaded = false;
+  type Action = 'login' | 'signup' | 'logout' | 'authChange';
+
+  const handleAuthentication = async (action: Action, email?: string, password?: string, currentUser?: any): Promise<boolean> => {
+    try {
+      const userCredential = await (async () => {
+        switch (action) {
+          case 'login':
+            return await signInWithEmailAndPassword(auth, email!, password!);
+
+          case 'signup':
+            return await createUserWithEmailAndPassword(auth, email!, password!);
+
+          case 'logout':
+            await auth.signOut();
+            return null; // Bij uitloggen is er geen gebruiker, dus return null
+
+          case 'authChange':
+            return currentUser ? { user: currentUser } : null; // Simuleer een userCredential als er een currentUser is
+
+          default:
+            throw new Error('Invalid auth action');
+        }
+      })(); // Sluit de IIFE (Immediately Invoked Function Expression)
+
+      const user = userCredential?.user || null;
+
+      if (user) {
+        user.value = user;
+        await loadUserProfile();
+        await loadState();
+      } else {
+        // user.value = null;
+        resetState();
+        state.stateLoaded = false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error(`Authentication action "${action}" failed`, error);
+      return false;
     }
   };
 
-  //event handler van Firebase die 'vuurt' als er iets verandert in de authorisatie van de gebruiker
-  onAuthStateChanged(auth, handleAuthChange);
+
+  onAuthStateChanged(auth, (currentUser) => {
+    handleAuthentication('authChange', undefined, undefined, currentUser);
+  });
 
   const setUserProfile = (data: any) => {
     userCredentials.displayName = auth.currentUser?.displayName || '';
@@ -75,207 +111,190 @@ export const useGameStore = defineStore('gameStore', () => {
     });
   };
 
-  const updateUserProfile = async (updatedCredentials: UserCredentials, avatarFile: File | null) => {
-    console.log(avatarFile)
-    if (auth.currentUser) {
+  const updateUserProfile = async (updatedCredentials: UserCredentials, avatarFile?: File): Promise<boolean> => {
+    try {
+      if (!auth.currentUser) {
+        console.error('No current user found.');
+        return false;
+      }
+  
       const userDocRef = doc(db, 'users', auth.currentUser.uid);
   
-      let avatarUrl = updatedCredentials.avatarUrl;
+      // Controleer of beide wachtwoorden zijn ingevuld
+      if (updatedCredentials.oldPassword && updatedCredentials.newPassword) {
+        try {
+          // Reauthenticate met het oude wachtwoord
+          const credential = EmailAuthProvider.credential(auth.currentUser.email!, updatedCredentials.oldPassword);
+          await reauthenticateWithCredential(auth.currentUser, credential);
+          
+          // Controleer of het nieuwe wachtwoord niet gelijk is aan het oude wachtwoord
+          if (updatedCredentials.oldPassword !== updatedCredentials.newPassword) {
+            await firebaseUpdatePassword(auth.currentUser, updatedCredentials.newPassword);
+          } else {
+            throw new Error('Het nieuwe wachtwoord mag niet hetzelfde zijn als het oude wachtwoord.');
+          }
+        } catch (error) {
+          console.error('Reauthentication failed:', error);
+          throw new Error('Ongeldig oud wachtwoord.');
+        }
+      }
   
-      // Als er een nieuwe avatar is geselecteerd, upload deze naar Firebase Storage
+      // Avatar uploaden als er een nieuwe is geselecteerd
+      let avatarUrl = updatedCredentials.avatarUrl;
       if (avatarFile) {
-        console.log("Bezig met uploaden van nieuwe avatar...");
         const avatarStorageRef = firebaseStorageRef(storage, `avatars/${auth.currentUser.uid}`);
         await uploadBytes(avatarStorageRef, avatarFile);
         avatarUrl = await getDownloadURL(avatarStorageRef);
-        console.log("Avatar geüpload naar:", avatarUrl);
       }
   
-      // Update Firestore met displayName, birthdate en de nieuwe avatarUrl
+      // Update Firestore
       const updates: Partial<UserCredentials> = {
         displayName: updatedCredentials.displayName,
         birthdate: updatedCredentials.birthdate,
-        avatarUrl: avatarUrl, // Gebruik de nieuwe URL als deze is geüpload
+        avatarUrl: avatarUrl,
       };
-  
       await updateDoc(userDocRef, updates);
-  
-      // Update de displayName in Firebase Auth indien nodig
-      if (updatedCredentials.displayName) {
-        await firebaseUpdateProfile(auth.currentUser, { displayName: updatedCredentials.displayName });
-      }
   
       // Profiel opnieuw laden om state up-to-date te houden
       await loadUserProfile();
-    } else {
-      console.error("Geen gebruiker ingelogd.");
-    }
-  };
-  
-  const login = async (email: string, password: string): Promise<boolean> => {
-    try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      handleAuthChange(userCredential.user);
+      
       return true;
     } catch (error) {
-      console.error('Login failed', error);
-      return false;
-    }
-  };
-
-  const logout = async (): Promise<boolean> => {
-    try {
-      await auth.signOut();
-      handleAuthChange(null);
-      return true;
-    } catch (error) {
-      console.error('Logout failed', error);
-      return false;
-    }
-  };
-
-  const signUp = async (email: string, password: string): Promise<boolean> => {
-    try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      handleAuthChange(userCredential.user);
-      return true;
-    } catch (error) {
-      console.error('Signup failed', error);
-      return false;
-    }
-  };
-
-  const uploadAvatarFile = async (uid: string, file: File): Promise<string> => {
-    try {
-      const storageRef = firebaseStorageRef(storage, `avatars/${uid}`);
-      await uploadBytes(storageRef, file);
-      return await getDownloadURL(storageRef);
-    } catch (error) {
-      console.error('Failed to upload avatar:', error);
+      console.error('Failed to update user profile:', error);
       throw error;
     }
   };
+  
 
-  const initializeCards = async (gridSize: number) => {
-    if (state.stateLoaded && state.cards.length && state.gridSize === gridSize) return;
-    state.cards = await cardService.initializeCards(gridSize);
-    state.gridSize = gridSize;
-    state.attempts = 0;
-    state.lockBoard = false;
-    state.firstCard = null;
-    state.secondCard = null;
-    await saveState();
-  };
+    const uploadAvatarFile = async (uid: string, file: File): Promise<string> => {
+      try {
+        const storageRef = firebaseStorageRef(storage, `avatars/${uid}`);
+        await uploadBytes(storageRef, file);
+        return await getDownloadURL(storageRef);
+      } catch (error) {
+        console.error('Failed to upload avatar:', error);
+        throw error;
+      }
+    };
 
-  const handleCardClick = (index: number) => {
-    const clickedCard = state.cards[index];
-    if (state.lockBoard || clickedCard === state.firstCard || clickedCard.exposed) return;
+    const initializeCards = async (gridSize: number) => {
+      if (state.stateLoaded && state.cards.length && state.gridSize === gridSize) return;
+      state.cards = await cardService.initializeCards(gridSize);
+      state.gridSize = gridSize;
+      state.attempts = 0;
+      state.lockBoard = false;
+      state.firstCard = null;
+      state.secondCard = null;
+      await saveState();
+    };
 
-    clickedCard.exposed = true;
+    const handleCardClick = (index: number) => {
+      const clickedCard = state.cards[index];
+      if (state.lockBoard || clickedCard === state.firstCard || clickedCard.exposed) return;
 
-    if (!state.firstCard) {
-      state.firstCard = clickedCard;
-      saveState();
-      return;
-    }
+      clickedCard.exposed = true;
 
-    state.secondCard = clickedCard;
-    state.attempts++;
-    state.lockBoard = true;
+      if (!state.firstCard) {
+        state.firstCard = clickedCard;
+        saveState();
+        return;
+      }
 
-    if (state.firstCard.set === state.secondCard.set) {
-      if (!state.cards.some(card => !card.exposed)) {
+      state.secondCard = clickedCard;
+      state.attempts++;
+      state.lockBoard = true;
+
+      if (state.firstCard.set === state.secondCard.set) {
+        if (!state.cards.some(card => !card.exposed)) {
+          setTimeout(() => {
+            alert('Gefeliciteerd! Je hebt alle kaarten gevonden.');
+            addResult();
+          }, 1000);
+        }
+        resetState();
+      } else {
         setTimeout(() => {
-          alert('Gefeliciteerd! Je hebt alle kaarten gevonden.');
-          addResult();
+          state.firstCard!.exposed = false;
+          state.secondCard!.exposed = false;
+          resetState();
         }, 1000);
       }
-      resetState();
-    } else {
-      setTimeout(() => {
-        state.firstCard!.exposed = false;
-        state.secondCard!.exposed = false;
-        resetState();
-      }, 1000);
-    }
-    saveState();
-  };
-
-  const resetState = () => {
-    state.firstCard = null;
-    state.secondCard = null;
-    state.lockBoard = false;
-    saveState();
-  };
-
-  const addResult = () => {
-    const result: Result = {
-      date: new Date().toISOString(),
-      attempts: state.attempts,
-      gridSize: state.gridSize,
-      score: Math.max(0, state.gridSize * 2 - state.attempts),
+      saveState();
     };
-    state.results.push(result);
-    saveState();
-  };
 
-  const saveState = async () => {
-    if (auth.currentUser) {
-      const userDoc = doc(db, `users/${auth.currentUser.uid}/gameState/state`);
-      await setDoc(userDoc, state, { merge: true });
-    } else {
-      localStorage.setItem('gameState', JSON.stringify(state));
-    }
-  };
+    const resetState = () => {
+      state.firstCard = null;
+      state.secondCard = null;
+      state.lockBoard = false;
+      saveState();
+    };
 
-  const loadState = async () => {
-    if (auth.currentUser) {
-      const userDocRef = doc(db, `users/${auth.currentUser.uid}/gameState/state`);
-      const docSnap = await getDoc(userDocRef);
-      if (docSnap.exists()) {
-        Object.assign(state, docSnap.data());
+    const addResult = () => {
+      const result: Result = {
+        date: new Date().toISOString(),
+        attempts: state.attempts,
+        gridSize: state.gridSize,
+        score: Math.max(0, state.gridSize * 2 - state.attempts),
+      };
+      state.results.push(result);
+      saveState();
+    };
+
+    const saveState = async () => {
+      if (auth.currentUser) {
+        const userDoc = doc(db, `users/${auth.currentUser.uid}/gameState/state`);
+        await setDoc(userDoc, state, { merge: true });
       } else {
-        await initializeCards(state.gridSize);
-        await saveState();
+        localStorage.setItem('gameState', JSON.stringify(state));
       }
-    } else {
-      const savedState = localStorage.getItem('gameState');
-      if (savedState) {
-        Object.assign(state, JSON.parse(savedState));
+    };
+
+    const loadState = async () => {
+      if (auth.currentUser) {
+        const userDocRef = doc(db, `users/${auth.currentUser.uid}/gameState/state`);
+        const docSnap = await getDoc(userDocRef);
+        if (docSnap.exists()) {
+          Object.assign(state, docSnap.data());
+        } else {
+          await initializeCards(state.gridSize);
+          await saveState();
+        }
       } else {
-        await initializeCards(state.gridSize);
-        saveState();
+        const savedState = localStorage.getItem('gameState');
+        if (savedState) {
+          Object.assign(state, JSON.parse(savedState));
+        } else {
+          await initializeCards(state.gridSize);
+          saveState();
+        }
       }
-    }
-    state.stateLoaded = true;
-  };
+      state.stateLoaded = true;
+    };
 
-  const fetchResults = async () => {
-    if (auth.currentUser) {
-      const userDoc = doc(db, `users/${auth.currentUser.uid}/gameState/state`);
-      const docSnap = await getDoc(userDoc);
-      if (docSnap.exists()) {
-        state.results = docSnap.data().results;
+    const fetchResults = async () => {
+      if (auth.currentUser) {
+        const userDoc = doc(db, `users/${auth.currentUser.uid}/gameState/state`);
+        const docSnap = await getDoc(userDoc);
+        if (docSnap.exists()) {
+          state.results = docSnap.data().results;
+        }
       }
-    }
-  };
+    };
 
-  return {
-    state,
-    login,
-    signUp,
-    initializeCards,
-    handleCardClick,
-    resetState,
-    addResult,
-    saveState,
-    loadState,
-    fetchResults,
-    updateUserProfile,
-    logout,
-    user,
-    userCredentials,
-    loadUserProfile,
-    uploadAvatarFile,
-  };
-});
+    return {
+      state,
+      initializeCards,
+      handleCardClick,
+      resetState,
+      addResult,
+      saveState,
+      loadState,
+      fetchResults,
+      updateUserProfile,
+      user,
+      userCredentials,
+      loadUserProfile,
+      uploadAvatarFile,
+      handleAuthentication
+    };
+  });

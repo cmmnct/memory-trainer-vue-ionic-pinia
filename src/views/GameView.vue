@@ -28,6 +28,7 @@
     @close="isSettingsOpen = false"
     @UpdateProfile="updateUserProfile"
     :onLogout="logout"
+    :passwordErrorMessage="passwordError"
   />
     <!-- gridSizeSelector -->
     <ion-modal :is-open="showGridSizeSelector" @didDismiss="showGridSizeSelector = false">
@@ -65,21 +66,24 @@ const gameStore = useGameStore();
 const loading = ref(true);
 const showGridSizeSelector = ref(false);
 const isSettingsOpen = ref(false);
+const passwordError = ref('')
 
 
-async function updateUserProfile(updatedCredentials: UserCredentials, avatarFile: File | null) {
+async function updateUserProfile(updatedCredentials: UserCredentials, avatarFile?: File) {
   console.log('GameView is calling GameStore updateUserProfile with:', updatedCredentials, avatarFile);
+  passwordError.value = '';
   try {
     await gameStore.updateUserProfile(updatedCredentials, avatarFile);
     console.log('UpdateUserProfile successfully executed');
-  } catch (error) {
-    console.error('Failed to execute updateUserProfile:', error);
+  } catch (error:any) {
+    passwordError.value = error.message;
+    console.log("updateProfiel says: " + error.message)
   }
 }
 
 
 async function logout() {
-  const success = await gameStore.logout();
+  const success = await gameStore.handleAuthentication("logout");
   if (success) {
     router.push({ path: '/login' });
   }
