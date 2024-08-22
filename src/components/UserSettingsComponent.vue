@@ -31,7 +31,9 @@
               placeholder="Voer je oude wachtwoord in">
               <ion-input-password-toggle slot="end"></ion-input-password-toggle>
             </ion-input>
+            <p v-if="passwordErrorMessage" style="color: red; font-weight: bold;">Error: {{ passwordErrorMessage }}</p>
           </ion-item>
+
           <ion-item v-if="changePassword">
             <ion-label position="stacked">Nieuwe wachtwoord</ion-label>
             <ion-input type="password" v-model="newPassword" @input="atSettingsChange"  @change="checkPasswords" onkeypress="return event.charCode != 32"
@@ -40,7 +42,7 @@
             </ion-input>
           </ion-item>
           <ion-item v-if="passwordError && changePassword"><p style="color: red; font-weight: bold;">{{ passwordError }}</p></ion-item>
-          <ion-item v-if="passwordErrorMessage"><p style="color: red; font-weight: bold;">Error: {{ passwordErrorMessage }}</p></ion-item>
+          
 
           <ion-item>
             <ion-label position="stacked">Geboortedatum</ion-label><br>
