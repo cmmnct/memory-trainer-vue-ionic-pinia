@@ -77,11 +77,6 @@ export const useGameStore = defineStore('gameStore', () => {
     handleAuthentication('authChange', undefined, undefined, currentUser);
   });
 
-  const setUserProfile = (data: any) => {
-    userCredentials.displayName = auth.currentUser?.displayName || '';
-    userCredentials.birthdate = data?.birthdate || defaultBirthdate;
-    userCredentials.avatarUrl = data?.avatarUrl || 'https://ionicframework.com/docs/img/demos/avatar.svg';
-  };
 
   const loadUserProfile = async () => {
     if (!auth.currentUser) {
@@ -111,6 +106,11 @@ export const useGameStore = defineStore('gameStore', () => {
     });
   };
 
+  const setUserProfile = (data: any) => {
+    userCredentials.displayName = auth.currentUser?.displayName || '';
+    userCredentials.birthdate = data?.birthdate || defaultBirthdate;
+    userCredentials.avatarUrl = data?.avatarUrl || 'https://ionicframework.com/docs/img/demos/avatar.svg';
+  };
   const updateUserProfile = async (updatedCredentials: UserCredentials, avatarFile?: File): Promise<boolean> => {
     try {
       if (!auth.currentUser) {

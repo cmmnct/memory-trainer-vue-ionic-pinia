@@ -34,7 +34,7 @@
   const error = ref<string>('');
 
   async function login() {
-  const success = await gameStore.handleAuthentication('login', email.value, password.value);
+  const success = await gameStore.handleAuthentication('signup', email.value, password.value);
   if (success) {
     router.push('/game'); // Navigeer naar het spel na succesvol inloggen
   } else {
