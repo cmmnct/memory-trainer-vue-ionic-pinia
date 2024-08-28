@@ -11,6 +11,7 @@
     <ion-content>
       <form>
         <ion-list>
+          <!-- Gebruikersnaam en Avatar -->
           <ion-item>
             <ion-label position="stacked">Gebruikersnaam</ion-label>
             <ion-input v-model="myUserCredentials.displayName" @input="atSettingsChange"
@@ -18,9 +19,10 @@
             <ion-avatar @click="triggerFileUpload" style="cursor: pointer;" slot="end">
               <img :src="myUserCredentials.avatarUrl" alt="Avatar">
             </ion-avatar>
-            <!-- Verborgen bestand upload element -->
             <input type="file" ref="fileInput" @change="handleFileChange" style="display: none;" />
           </ion-item>
+          
+          <!-- Geboortedatum -->
           <ion-item>
             <ion-label position="stacked">Geboortedatum</ion-label><br>
             <ion-datetime-button datetime="datetime"></ion-datetime-button><br>
@@ -30,23 +32,23 @@
             </ion-modal>
           </ion-item>
         </ion-list>
+
+        <!-- Update Profiel Knop -->
         <ion-button expand="block" @click="handleUpdateProfile()" :disabled="submitDisabled">Update Profiel</ion-button>
 
-        <!-- password blok -->
+        <!-- Wachtwoord wijzigen -->
         <ion-list v-if="changePassword">
           <ion-item>
             <ion-label position="stacked">Oude wachtwoord</ion-label>
             <ion-input type="password" v-model="myUserCredentials.oldPassword" @input="checkPasswords"
-              onkeypress="return event.charCode != 32"
-              placeholder="Voer je oude wachtwoord in">
+              onkeypress="return event.charCode != 32" placeholder="Voer je oude wachtwoord in">
               <ion-input-password-toggle slot="end"></ion-input-password-toggle>
             </ion-input>
           </ion-item>
           <ion-item>
             <ion-label position="stacked">Nieuwe wachtwoord</ion-label>
             <ion-input type="password" v-model="myUserCredentials.newPassword" @input="checkPasswords"
-             onkeypress="return event.charCode != 32"
-              placeholder="Voer je nieuwe wachtwoord in">
+              onkeypress="return event.charCode != 32" placeholder="Voer je nieuwe wachtwoord in">
               <ion-input-password-toggle slot="end"></ion-input-password-toggle>
             </ion-input>
           </ion-item>
@@ -56,7 +58,7 @@
           <ion-grid>
             <ion-row>
               <ion-col>
-                <ion-button expand="block" @click="changePassword = false">Cancel</ion-button>
+                <ion-button expand="block" @click="cancelPasswordChange">Cancel</ion-button>
               </ion-col>
               <ion-col>
                 <ion-button expand="block" :disabled="checkPasswords()" @click="handleUpdateProfile()">Update Wachtwoord</ion-button>
@@ -65,8 +67,8 @@
           </ion-grid>
         </ion-list>
         <ion-button v-else expand="block" @click="changePassword = true">Update wachtwoord</ion-button>
-         <!-- password blok -->
 
+        <!-- Uitloggen -->
         <ion-button expand="block" color="warning" @click="handleLogout">Uitloggen</ion-button>
       </form>
     </ion-content>
@@ -79,9 +81,8 @@ import { UserCredentials } from '../models/models';
 
 const props = defineProps<{
   isOpen: boolean;
-  userCredentials: UserCredentials,
+  userCredentials: UserCredentials;
   onLogout: () => void;
-
 }>();
 const emit = defineEmits(['close', 'updateProfile']);
 const submitDisabled = ref(true);
@@ -110,14 +111,17 @@ function triggerFileUpload() {
 }
 
 function atSettingsChange() {
-  console.log('atSettingsChange triggered')
   submitDisabled.value = false; // Zorg ervoor dat de submit knop actief wordt bij wijzigingen
 }
 
 function close() {
   emit('close');
-  submitDisabled.value = true; // Reset de status van de submit knop
-  changePassword.value = false
+  resetState();
+}
+
+function resetState() {
+  submitDisabled.value = true;
+  changePassword.value = false;
   passwordError.value = '';
   myUserCredentials.oldPassword = '';
   myUserCredentials.newPassword = '';
@@ -128,7 +132,6 @@ const handleFileChange = (event: Event) => {
   if (target.files && target.files[0]) {
     avatarFile.value = target.files[0];
     myUserCredentials.avatarUrl = URL.createObjectURL(avatarFile.value);
-    console.log("Nieuwe avatar geselecteerd:", myUserCredentials.avatarUrl);
     atSettingsChange(); // Activeer de submit knop
   }
 };
@@ -136,20 +139,25 @@ const handleFileChange = (event: Event) => {
 function handleUpdateProfile() {
   console.log("Profiel wordt bijgewerkt:", myUserCredentials);
   if (changePassword.value) {
-    checkPasswords()
+    if (!checkPasswords()) return;
   }
   emit('updateProfile', myUserCredentials, avatarFile.value);
 }
 
-function checkPasswords(): boolean  {
+function checkPasswords(): boolean {
   if (myUserCredentials.oldPassword && myUserCredentials.newPassword && myUserCredentials.oldPassword !== myUserCredentials.newPassword) {
     passwordError.value = '';
-    return false
+    return true;
+  } else {
+    passwordError.value = 'Vul uw oude wachtwoord in en een nieuw wachtwoord. Het oude en nieuwe mogen niet gelijk zijn';
+    return false;
   }
-  else {
-    passwordError.value = 'Vul uw oude wachtwoord in en een nieuw wachtwoord. Het oude en nieuwe mogen niet gelijk zijn'
-    return true
-  }
+}
+
+function cancelPasswordChange() {
+  changePassword.value = false;
+  myUserCredentials.oldPassword = '';
+  myUserCredentials.newPassword = '';
 }
 
 function handleLogout() {
