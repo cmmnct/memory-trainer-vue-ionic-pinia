@@ -4,10 +4,10 @@
       <ion-toolbar>
         <ion-title>Memory Game</ion-title>
         <ion-buttons slot="end">
-          <ion-button @click="isSettingsOpen = true">
+          <ion-button @click="componentState.showUserSettings = true">
             <ion-icon slot="icon-only" name="person-circle-outline"></ion-icon>
           </ion-button>
-          <ion-button @click="showGridSizeSelector = true">
+          <ion-button @click="componentState.showGridSizeSelector = true">
             <ion-icon slot="icon-only" name="grid-outline"></ion-icon>
           </ion-button>
 
@@ -22,21 +22,15 @@
       <ion-spinner v-else />
     </ion-content>
     <!-- Modals -->
-    <UserSettingsComponent
-    :isOpen="isSettingsOpen"
-    :userCredentials="gameStore.userCredentials"
-    @close="isSettingsOpen = false"
-    @UpdateProfile="updateUserProfile"
-    :onLogout="logout"
-    :passwordErrorMessage="passwordError"
-  />
+    <UserSettingsComponent :isOpen="componentState.showUserSettings" :userCredentials="gameStore.userCredentials"
+      @close="componentState.showUserSettings = false" @UpdateProfile="updateUserProfile" :onLogout="logout" />
     <!-- gridSizeSelector -->
-    <ion-modal :is-open="showGridSizeSelector" @didDismiss="showGridSizeSelector = false">
+    <ion-modal :is-open="componentState.showGridSizeSelector" @didDismiss="componentState.showGridSizeSelector = false">
       <ion-header>
         <ion-toolbar>
           <ion-title>Selecteer Grid Grootte</ion-title>
           <ion-buttons slot="end">
-            <ion-button @click="showGridSizeSelector = false">Sluiten</ion-button>
+            <ion-button @click="componentState.showGridSizeSelector = false">Sluiten</ion-button>
           </ion-buttons>
         </ion-toolbar>
       </ion-header>
@@ -52,20 +46,23 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, onMounted} from 'vue';
+import { ref, onMounted, reactive } from 'vue';
 import { useGameStore } from '@/stores/gameStore';
 import CardComponent from '@/components/CardComponent.vue';
 import UserSettingsComponent from '@/components/UserSettingsComponent.vue';
 import { useRouter } from 'vue-router';
 import { UserCredentials } from '../models/models'
-  
+
 const router = useRouter();
-  
+
 
 const gameStore = useGameStore();
-const loading = ref(true);
-const showGridSizeSelector = ref(false);
-const isSettingsOpen = ref(false);
+const componentState = reactive({
+  loading: true,
+  showGridSizeSelector: false,
+  showUserSettings: false
+
+})
 const passwordError = ref('')
 
 
@@ -75,7 +72,7 @@ async function updateUserProfile(updatedCredentials: UserCredentials, avatarFile
   try {
     await gameStore.updateUserProfile(updatedCredentials, avatarFile);
     console.log('UpdateUserProfile successfully executed');
-  } catch (error:any) {
+  } catch (error: any) {
     passwordError.value = error.message;
     console.log("updateProfiel says: " + error.message)
   }
@@ -89,23 +86,23 @@ async function logout() {
   }
 }
 
-const handleCardClick = (index:number) => {
+const handleCardClick = (index: number) => {
   gameStore.handleCardClick(index);
 };
 
 async function handleGridSizeChange(size: number) {
-  showGridSizeSelector.value = false;
-  loading.value = true;
+  componentState.showGridSizeSelector = false;
+  componentState.loading = true;
   await gameStore.initializeCards(size);
-  loading.value = false;
+  componentState.loading = false;
 }
 
 
 onMounted(async () => {
   await gameStore.loadState();
-  loading.value = false;
+  componentState.loading = false;
   console.log('GameView loaded state:', gameStore.state);
-  
+
 });
 </script>
 

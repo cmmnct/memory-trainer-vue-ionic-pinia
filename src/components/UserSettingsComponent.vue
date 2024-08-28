@@ -1,5 +1,5 @@
 <template>
-  <ion-modal :is-open="isOpen" @didDismiss="close" @willPresent="onOpen">
+  <ion-modal :is-open="isOpen" @didDismiss="close">
     <ion-header>
       <ion-toolbar>
         <ion-title>Gebruikersinstellingen</ion-title>
@@ -21,29 +21,6 @@
             <!-- Verborgen bestand upload element -->
             <input type="file" ref="fileInput" @change="handleFileChange" style="display: none;" />
           </ion-item>
-
-          <ion-item>
-            <ion-button @click="changePassword = !changePassword">Verander wachtwoord</ion-button>
-          </ion-item>
-          <ion-item v-if="changePassword">
-            <ion-label position="stacked">Oude wachtwoord</ion-label>
-            <ion-input type="password" v-model="oldPassword" @input="atSettingsChange" @change="checkPasswords" onkeypress="return event.charCode != 32"
-              placeholder="Voer je oude wachtwoord in">
-              <ion-input-password-toggle slot="end"></ion-input-password-toggle>
-            </ion-input>
-            <p v-if="passwordErrorMessage" style="color: red; font-weight: bold;">Error: {{ passwordErrorMessage }}</p>
-          </ion-item>
-
-          <ion-item v-if="changePassword">
-            <ion-label position="stacked">Nieuwe wachtwoord</ion-label>
-            <ion-input type="password" v-model="newPassword" @input="atSettingsChange"  @change="checkPasswords" onkeypress="return event.charCode != 32"
-              placeholder="Voer je nieuwe wachtwoord in">
-              <ion-input-password-toggle slot="end"></ion-input-password-toggle>
-            </ion-input>
-          </ion-item>
-          <ion-item v-if="passwordError && changePassword"><p style="color: red; font-weight: bold;">{{ passwordError }}</p></ion-item>
-          
-
           <ion-item>
             <ion-label position="stacked">Geboortedatum</ion-label><br>
             <ion-datetime-button datetime="datetime"></ion-datetime-button><br>
@@ -53,43 +30,78 @@
             </ion-modal>
           </ion-item>
         </ion-list>
-
         <ion-button expand="block" @click="handleUpdateProfile()" :disabled="submitDisabled">Update Profiel</ion-button>
+
+        <!-- password blok -->
+        <ion-list v-if="changePassword">
+          <ion-item>
+            <ion-label position="stacked">Oude wachtwoord</ion-label>
+            <ion-input type="password" v-model="myUserCredentials.oldPassword" @input="checkPasswords"
+              onkeypress="return event.charCode != 32"
+              placeholder="Voer je oude wachtwoord in">
+              <ion-input-password-toggle slot="end"></ion-input-password-toggle>
+            </ion-input>
+          </ion-item>
+          <ion-item>
+            <ion-label position="stacked">Nieuwe wachtwoord</ion-label>
+            <ion-input type="password" v-model="myUserCredentials.newPassword" @input="checkPasswords"
+             onkeypress="return event.charCode != 32"
+              placeholder="Voer je nieuwe wachtwoord in">
+              <ion-input-password-toggle slot="end"></ion-input-password-toggle>
+            </ion-input>
+          </ion-item>
+          <ion-item v-if="passwordError && changePassword">
+            <p style="color: red; font-weight: bold;">{{ passwordError }}</p>
+          </ion-item>
+          <ion-grid>
+            <ion-row>
+              <ion-col>
+                <ion-button expand="block" @click="changePassword = false">Cancel</ion-button>
+              </ion-col>
+              <ion-col>
+                <ion-button expand="block" :disabled="checkPasswords()" @click="handleUpdateProfile()">Update Wachtwoord</ion-button>
+              </ion-col>
+            </ion-row>
+          </ion-grid>
+        </ion-list>
+        <ion-button v-else expand="block" @click="changePassword = true">Update wachtwoord</ion-button>
+         <!-- password blok -->
+
         <ion-button expand="block" color="warning" @click="handleLogout">Uitloggen</ion-button>
       </form>
     </ion-content>
   </ion-modal>
 </template>
 
-
 <script lang="ts" setup>
-import { ref, reactive } from 'vue';
+import { ref, reactive, watchEffect } from 'vue';
 import { UserCredentials } from '../models/models';
 
 const props = defineProps<{
   isOpen: boolean;
-  passwordErrorMessage: string;
   userCredentials: UserCredentials,
   onLogout: () => void;
-  
+
 }>();
 const emit = defineEmits(['close', 'updateProfile']);
 const submitDisabled = ref(true);
-let myUserCredentials = reactive({ ...props.userCredentials });
+const myUserCredentials = reactive<UserCredentials>({
+  displayName: '',
+  oldPassword: '',
+  newPassword: '',
+  birthdate: '',
+  avatarUrl: '',
+});
 const fileInput = ref<HTMLInputElement | null>(null);
 const avatarFile = ref<File | null>(null);
-const oldPassword = ref('');
-const newPassword = ref('');
 const changePassword = ref(false);
 const passwordError = ref('');
 
-function onOpen() {
-  // Diepe kopie om wijzigingen in de originele props te voorkomen totdat de gebruiker opslaat
-  myUserCredentials = JSON.parse(JSON.stringify(props.userCredentials));
-  submitDisabled.value = true; // Reset de disabled status van de submit knop
-
-  console.log("Gevulde credentials bij openen:", myUserCredentials); // Debugging lijn
-}
+// Synchroniseer myUserCredentials met props.userCredentials wanneer props.userCredentials verandert
+watchEffect(() => {
+  Object.assign(myUserCredentials, JSON.parse(JSON.stringify(props.userCredentials)));
+  submitDisabled.value = true; // Reset de status van de submit knop
+});
 
 function triggerFileUpload() {
   if (fileInput.value) {
@@ -98,8 +110,8 @@ function triggerFileUpload() {
 }
 
 function atSettingsChange() {
+  console.log('atSettingsChange triggered')
   submitDisabled.value = false; // Zorg ervoor dat de submit knop actief wordt bij wijzigingen
-checkPasswords()
 }
 
 function close() {
@@ -107,8 +119,8 @@ function close() {
   submitDisabled.value = true; // Reset de status van de submit knop
   changePassword.value = false
   passwordError.value = '';
-  oldPassword.value = '';
-  newPassword.value = '';
+  myUserCredentials.oldPassword = '';
+  myUserCredentials.newPassword = '';
 }
 
 const handleFileChange = (event: Event) => {
@@ -126,18 +138,18 @@ function handleUpdateProfile() {
   if (changePassword.value) {
     checkPasswords()
   }
-emit('updateProfile', myUserCredentials, avatarFile.value);
+  emit('updateProfile', myUserCredentials, avatarFile.value);
 }
 
-function checkPasswords(){
-  if (oldPassword.value && newPassword.value && oldPassword.value !== newPassword.value) {
-      myUserCredentials.oldPassword = oldPassword.value;
-      myUserCredentials.newPassword = newPassword.value;
-      passwordError.value = ''
-    }
-    else {
-      passwordError.value = 'Vul uw oude wachtwoord in en een nieuw wachtwoord. Het oude en nieuwe mogen niet gelijk zijn'
-    }
+function checkPasswords(): boolean  {
+  if (myUserCredentials.oldPassword && myUserCredentials.newPassword && myUserCredentials.oldPassword !== myUserCredentials.newPassword) {
+    passwordError.value = '';
+    return false
+  }
+  else {
+    passwordError.value = 'Vul uw oude wachtwoord in en een nieuw wachtwoord. Het oude en nieuwe mogen niet gelijk zijn'
+    return true
+  }
 }
 
 function handleLogout() {
