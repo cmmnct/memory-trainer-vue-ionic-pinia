@@ -7,6 +7,8 @@ import { signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthState
 import { State, Result, UserCredentials } from '@/models/models';
 import { uploadBytes, getDownloadURL, ref as firebaseStorageRef } from 'firebase/storage';
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword as firebaseUpdatePassword } from 'firebase/auth';
+import { useNotificationStore } from './notificationStore'; // Importeer de notificationStore
+
 
 
 export const useGameStore = defineStore('gameStore', () => {
@@ -20,6 +22,8 @@ export const useGameStore = defineStore('gameStore', () => {
     results: [],
     stateLoaded: false,
   });
+  const notificationStore = useNotificationStore(); // Initialiseer de notificationStore
+
   const user = ref(auth.currentUser);
   const userCredentials = reactive<UserCredentials>({
     displayName: '',
@@ -72,15 +76,18 @@ export const useGameStore = defineStore('gameStore', () => {
     }
   };
 
-
   onAuthStateChanged(auth, (currentUser) => {
-    handleAuthentication('authChange', undefined, undefined, currentUser);
+    if (currentUser) {
+      handleAuthentication('authChange', undefined, undefined, currentUser);
+    } else {
+      console.log('Geen ingelogde gebruiker.');
+      // Andere logica wanneer er geen ingelogde gebruiker is
+    }
   });
-
 
   const loadUserProfile = async () => {
     if (!auth.currentUser) {
-      console.error('No current user in Firebase Auth.');
+      notificationStore.addNotification('Er is een fout opgetreden bij het laden van uw gegevens.', 'danger');
       return;
     }
     const userDocRef = doc(db, 'users', auth.currentUser.uid);
@@ -88,8 +95,10 @@ export const useGameStore = defineStore('gameStore', () => {
 
     if (userDoc.exists()) {
       setUserProfile(userDoc.data());
+      notificationStore.addNotification('Uw gegevens met succes geladen.', 'success');
     } else {
       console.log('User document does not exist, creating a new one.');
+      notificationStore.addNotification('Geen gebruikersgegevens gevonden, nieuwe aangemaakt.', 'warning');
       const defaultData = {
         displayName: auth.currentUser.displayName || '',
         birthdate: defaultBirthdate,
@@ -107,7 +116,7 @@ export const useGameStore = defineStore('gameStore', () => {
   };
 
   const setUserProfile = (data: any) => {
-    userCredentials.displayName = auth.currentUser?.displayName || '';
+    userCredentials.displayName = data?.displayName || '';
     userCredentials.birthdate = data?.birthdate || defaultBirthdate;
     userCredentials.avatarUrl = data?.avatarUrl || 'https://ionicframework.com/docs/img/demos/avatar.svg';
   };
@@ -125,28 +134,31 @@ export const useGameStore = defineStore('gameStore', () => {
     try {
       // Reauthenticate and update password if needed
       if (shouldReauthenticate(updatedCredentials)) {
+        console.log(shouldReauthenticate(updatedCredentials))
         await reauthenticateAndChangePassword(updatedCredentials);
+        return true;
+      }
+      else {
+        // Upload avatar if provided and get the new URL
+        const avatarUrl = avatarFile
+          ? await uploadAvatar(auth.currentUser.uid, avatarFile)
+          : updatedCredentials.avatarUrl;
+
+        // Update Firestore with the new profile data
+        await updateFirestoreProfile({
+          displayName: updatedCredentials.displayName,
+          birthdate: updatedCredentials.birthdate,
+          avatarUrl,
+        });
+        notificationStore.addNotification('uw gegevens zijn met succes aangepast...', 'success');
+        // Reload the user profile to reflect the changes in the state
+        await loadUserProfile();
+        return true;
       }
 
-      // Upload avatar if provided and get the new URL
-      const avatarUrl = avatarFile
-        ? await uploadAvatar(auth.currentUser.uid, avatarFile)
-        : updatedCredentials.avatarUrl;
-
-      // Update Firestore with the new profile data
-      await updateFirestoreProfile({
-        displayName: updatedCredentials.displayName,
-        birthdate: updatedCredentials.birthdate,
-        avatarUrl,
-      });
-
-      // Reload the user profile to reflect the changes in the state
-      await loadUserProfile();
-
-      return true;
     } catch (error) {
-      console.error("Failed to update user profile:", error);
-      throw error; // Rethrow the error so the caller can handle it
+      notificationStore.addNotification('Er is een fout opgetreden bij het updaten van uw gegevens.', 'error');
+      return false;
     }
   };
 
@@ -161,6 +173,7 @@ export const useGameStore = defineStore('gameStore', () => {
   const reauthenticateAndChangePassword = async (
     credentials: UserCredentials
   ): Promise<void> => {
+    console.log('update password started')
     try {
       const credential = EmailAuthProvider.credential(
         auth.currentUser!.email!,
@@ -168,9 +181,9 @@ export const useGameStore = defineStore('gameStore', () => {
       );
       await reauthenticateWithCredential(auth.currentUser!, credential);
       await firebaseUpdatePassword(auth.currentUser!, credentials.newPassword);
+      notificationStore.addNotification('Wachtwoord met succes bijgewerkt!', 'success');
     } catch (error) {
-      console.error("Reauthentication failed:", error);
-      throw new Error("Ongeldig oud wachtwoord.");
+      notificationStore.addNotification('Onjuist wachtwoord opgegeven.', 'danger');
     }
   };
 
@@ -178,12 +191,12 @@ export const useGameStore = defineStore('gameStore', () => {
     try {
       const avatarStorageRef = firebaseStorageRef(storage, `avatars/${uid}`);
       await uploadBytes(avatarStorageRef, file);
-      console.log("Avatar upload successful for user:", uid); // Log success message
+      notificationStore.addNotification('Avatar succesvol bijgewerkt!', 'success');
       return await getDownloadURL(avatarStorageRef);
     } catch (error) {
-      console.error("Failed to upload avatar:", error);
+      notificationStore.addNotification('Er ging iets fout bij het updaten van uw avatar. Prober het opnieuw.', 'error');
       throw error;
-    } 
+    }
   };
 
   const updateFirestoreProfile = async (
@@ -276,7 +289,9 @@ export const useGameStore = defineStore('gameStore', () => {
         await saveState();
       }
     } else {
+      notificationStore.addNotification('Geen netwerk, gegevens uit de localstorage gehaald.', 'warning');
       const savedState = localStorage.getItem('gameState');
+      
       if (savedState) {
         Object.assign(state, JSON.parse(savedState));
       } else {

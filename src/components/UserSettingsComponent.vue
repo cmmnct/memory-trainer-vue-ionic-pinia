@@ -1,4 +1,5 @@
 <template>
+
   <ion-modal :is-open="isOpen" @didDismiss="close">
     <ion-header>
       <ion-toolbar>
@@ -61,7 +62,7 @@
                 <ion-button expand="block" @click="cancelPasswordChange">Cancel</ion-button>
               </ion-col>
               <ion-col>
-                <ion-button expand="block" :disabled="checkPasswords()" @click="handleUpdateProfile()">Update Wachtwoord</ion-button>
+                <ion-button expand="block" :disabled="!checkPasswords()" @click="handleUpdateProfile()">Update Wachtwoord</ion-button>
               </ion-col>
             </ion-row>
           </ion-grid>
@@ -100,6 +101,7 @@ const passwordError = ref('');
 
 // Synchroniseer myUserCredentials met props.userCredentials wanneer props.userCredentials verandert
 watchEffect(() => {
+  console.log('user credentials synchonised, wathceffect')
   Object.assign(myUserCredentials, JSON.parse(JSON.stringify(props.userCredentials)));
   submitDisabled.value = true; // Reset de status van de submit knop
 });
@@ -142,6 +144,7 @@ function handleUpdateProfile() {
     if (!checkPasswords()) return;
   }
   emit('updateProfile', myUserCredentials, avatarFile.value);
+  submitDisabled.value = true;
 }
 
 function checkPasswords(): boolean {

@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
+import { getAuth, setPersistence, browserLocalPersistence, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
@@ -16,6 +16,13 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
+
+// Wait for Firebase to initialize the auth state
+export const firebaseAuthInitialized = new Promise((resolve, reject) => {
+  onAuthStateChanged(auth, user => {
+    resolve(user);  // Resolve the promise when Firebase is done
+  }, reject);
+});
 
 // Stel de persistentie in (local storage)
 setPersistence(auth, browserLocalPersistence)
