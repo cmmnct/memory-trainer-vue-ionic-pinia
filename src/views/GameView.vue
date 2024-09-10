@@ -10,7 +10,10 @@
           <ion-button @click="componentState.showGridSizeSelector = true">
             <ion-icon slot="icon-only" name="grid-outline"></ion-icon>
           </ion-button>
-
+          <!-- Knop voor het openen van het ResultComponent -->
+          <ion-button @click="componentState.showResults = true">
+            <ion-icon slot="icon-only" name="bar-chart-outline"></ion-icon>
+          </ion-button>
         </ion-buttons>
       </ion-toolbar>
     </ion-header>
@@ -21,9 +24,11 @@
       </div>
       <ion-spinner v-else />
     </ion-content>
+    
     <!-- Modals -->
     <UserSettingsComponent :isOpen="componentState.showUserSettings" :userCredentials="gameStore.userCredentials"
       @close="componentState.showUserSettings = false" @UpdateProfile="updateUserProfile" :onLogout="logout" />
+    
     <!-- gridSizeSelector -->
     <ion-modal :is-open="componentState.showGridSizeSelector" @didDismiss="componentState.showGridSizeSelector = false">
       <ion-header>
@@ -42,6 +47,9 @@
         </ion-list>
       </ion-content>
     </ion-modal>
+
+    <!-- ResultComponent Modal -->
+    <ResultsComponent :isOpen="componentState.showResults" :results="gameStore.state.results" @close="componentState.showResults = false" />
   </ion-page>
 </template>
 
@@ -50,21 +58,20 @@ import { ref, onMounted, reactive } from 'vue';
 import { useGameStore } from '@/stores/gameStore';
 import CardComponent from '@/components/CardComponent.vue';
 import UserSettingsComponent from '@/components/UserSettingsComponent.vue';
+import ResultsComponent from '@/components/ResultsComponent.vue';  // Importeer je ResultComponent
 import { useRouter } from 'vue-router';
 import { UserCredentials } from '../models/models'
 
 const router = useRouter();
 
-
 const gameStore = useGameStore();
 const componentState = reactive({
   loading: true,
   showGridSizeSelector: false,
-  showUserSettings: false
-
+  showUserSettings: false,
+  showResults: false  // Voeg deze toe voor het ResultComponent
 })
 const passwordError = ref('')
-
 
 async function updateUserProfile(updatedCredentials: UserCredentials, avatarFile?: File) {
   console.log('GameView is calling GameStore updateUserProfile with:', updatedCredentials, avatarFile);
@@ -77,7 +84,6 @@ async function updateUserProfile(updatedCredentials: UserCredentials, avatarFile
     console.log("updateProfiel says: " + error.message)
   }
 }
-
 
 async function logout() {
   const success = await gameStore.handleAuthentication("logout");
@@ -97,12 +103,10 @@ async function handleGridSizeChange(size: number) {
   componentState.loading = false;
 }
 
-
 onMounted(async () => {
   await gameStore.loadState();
   componentState.loading = false;
   console.log('GameView loaded state:', gameStore.state);
-
 });
 </script>
 
@@ -132,3 +136,6 @@ onMounted(async () => {
   max-width: calc(16.6666% - 2vw);
 }
 </style>
+
+
+ 
