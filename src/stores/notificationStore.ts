@@ -17,3 +17,4 @@ export const useNotificationStore = defineStore('notificationStore', () => {
     addNotification,
   };
 });
+

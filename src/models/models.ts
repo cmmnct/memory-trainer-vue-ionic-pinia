@@ -34,3 +34,4 @@ export interface Card {
     birthdate: string;
     avatarUrl: string;
   }
+  
