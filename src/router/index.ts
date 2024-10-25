@@ -22,6 +22,11 @@ const routes = [
     },
   },
   {
+    path: '/game/:invitationId', // Dynamische route voor specifieke spellen
+    component: GameView, // Als je dezelfde component gebruikt voor /game en /game/:invitationId
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/login',
     component: LoginView,
   },
@@ -42,25 +47,30 @@ const router = createRouter({
 
 // Wait for Firebase auth to initialize before handling routes
 router.beforeEach(async (to, from, next) => {
-  await firebaseAuthInitialized;  // Wait until Firebase auth is initialized
+  await firebaseAuthInitialized;  // Wacht totdat Firebase auth is geïnitialiseerd
   
   const currentUser = auth.currentUser;
 
   if (currentUser) {
-    // Als de gebruiker is ingelogd, altijd naar /game sturen, behalve als hij al op /game zit
-    if (to.path !== '/game') {
-      next('/game');
+    // Controleer of de route een dynamische game route is met een invitationId
+    const isGameRoute = to.path.startsWith('/game') && to.params.invitationId;
+
+    if (to.path === '/game' || isGameRoute) {
+      next(); // Sta de gebruiker toe om naar /game of /game/:invitationId te navigeren
     } else {
-      next(); // De gebruiker zit al op /game, ga verder
+      // Gebruiker is ingelogd, maar navigeert naar een andere route, stuur naar /game
+      next('/game');
     }
   } else {
-    // Als de gebruiker niet is ingelogd
-    if (to.meta.requiresAuth && to.path !== '/home') {
-      next('/home'); // Probeer naar een beschermde route te gaan zonder ingelogd te zijn
+    // Als de gebruiker niet is ingelogd en een route met auth probeert te bezoeken
+    if (to.meta.requiresAuth) {
+      next('/home'); // Stuur naar home als de route beveiligd is
     } else {
       next(); // Ga door naar de gevraagde route
     }
   }
 });
+
+
 
 export default router;

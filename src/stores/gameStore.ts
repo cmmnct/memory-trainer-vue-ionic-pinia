@@ -4,12 +4,11 @@ import { cardService } from '@/services/cardService';
 import { db, storage, auth } from '@/firebase';
 import { doc, setDoc, getDoc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged } from 'firebase/auth';
-import { State, Result, UserCredentials } from '@/models/models';
+import { State, Result, UserCredentials, MultiPlayerState } from '@/models/models';
 import { uploadBytes, getDownloadURL, ref as firebaseStorageRef } from 'firebase/storage';
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword as firebaseUpdatePassword } from 'firebase/auth';
 import { useNotificationStore } from './notificationStore'; // Importeer de notificationStore
-
-
+import { useMultiplayerStore } from './multiplayerStore';
 
 export const useGameStore = defineStore('gameStore', () => {
   const state = reactive<State>({
@@ -20,9 +19,25 @@ export const useGameStore = defineStore('gameStore', () => {
     gridSize: 16,
     cards: [],
     results: [],
-    stateLoaded: false,
+    stateLoaded: false
   });
+
   const notificationStore = useNotificationStore(); // Initialiseer de notificationStore
+const multiplayerStore = useMultiplayerStore();
+
+const mpState = reactive<MultiPlayerState>({
+  firstCard: null,
+  secondCard: null,
+  lockBoard: false,
+  cards: [],
+  stateLoaded: false,
+  currentPlayer: 0,
+  cardsPlayer1: [],
+  cardsPlayer2: []
+})
+
+  
+// user en authenticatielogica ---------------------------------------------------------------------------------------------------
 
   const user = ref(auth.currentUser);
   const userCredentials = reactive<UserCredentials>({
@@ -206,6 +221,23 @@ export const useGameStore = defineStore('gameStore', () => {
     await updateDoc(userDocRef, updates);
   };
 
+  // spellogica -----------------------------------------------------------------------------------------------------------------------
+
+
+// Update de multiplayer state als de uitnodiger het spel start
+const setMultiPlayerState = (newState: MultiPlayerState) => {
+  mpState.firstCard = newState.firstCard;
+  mpState.secondCard = newState.secondCard;
+  mpState.lockBoard = newState.lockBoard;
+  mpState.cards = newState.cards;
+  mpState.stateLoaded = newState.stateLoaded;
+  mpState.currentPlayer = newState.currentPlayer;
+  mpState.cardsPlayer1 = newState.cardsPlayer1;
+  mpState.cardsPlayer2 = newState.cardsPlayer2;
+};
+
+
+
   const initializeCards = async (gridSize: number) => {
     if (state.stateLoaded && state.cards.length && state.gridSize === gridSize) return;
     state.cards = await cardService.initializeCards(gridSize);
@@ -270,6 +302,7 @@ export const useGameStore = defineStore('gameStore', () => {
   };
 
   const saveState = async () => {
+    
     if (auth.currentUser) {
       const userDoc = doc(db, `users/${auth.currentUser.uid}/gameState/state`);
       await setDoc(userDoc, state, { merge: true });
@@ -278,8 +311,23 @@ export const useGameStore = defineStore('gameStore', () => {
     }
   };
 
-  const loadState = async () => {
-    if (auth.currentUser) {
+  const loadState = async (invitationId = '') => {
+    if (invitationId) {
+      // Multiplayer game state laden
+      const invitationRef = doc(db, 'invitations', invitationId);
+      const invitationSnap = await getDoc(invitationRef);
+      if (invitationSnap.exists()) {
+        const invitationData = invitationSnap.data();
+        if (invitationData.status === 'waiting') {
+          notificationStore.addNotification('Wachten op tegenspeler...', 'info');
+        } else if (invitationData.status === 'active') {
+          Object.assign(mpState, invitationData.gameState);
+          notificationStore.addNotification('Het spel is gestart!', 'success');
+        }
+      }
+
+    }
+    else if (auth.currentUser) {
       const userDocRef = doc(db, `users/${auth.currentUser.uid}/gameState/state`);
       const docSnap = await getDoc(userDocRef);
       if (docSnap.exists()) {
@@ -314,6 +362,7 @@ export const useGameStore = defineStore('gameStore', () => {
 
   return {
     state,
+    mpState,
     initializeCards,
     handleCardClick,
     resetState,

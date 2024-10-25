@@ -47,9 +47,11 @@ router.isReady().then(() => {
 // Import individual Ionic components
 import { IonicVue, IonInputPasswordToggle, IonButtons, IonIcon, IonList, IonItem, IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonButton, IonInput, IonSelect, IonSelectOption, IonGrid, IonRow, IonCol, IonSpinner, IonModal, IonLabel, IonDatetime, IonDatetimeButton, IonAvatar, IonToast } from '@ionic/vue';
 import { IonCard, IonCardTitle, IonCardSubtitle, IonCardContent, IonCardHeader } from '@ionic/vue';
+import { IonSearchbar, IonAlert } from '@ionic/vue';
 
 // Register Ionic components globally
 
+app.component('ion-alert', IonAlert);
 app.component('ion-buttons', IonButtons);
 app.component('ion-icon', IonIcon);
 app.component('ion-list', IonList);
@@ -79,12 +81,16 @@ app.component('ion-card-title', IonCardTitle);
 app.component('ion-card-subtitle', IonCardSubtitle);
 app.component('ion-card-header', IonCardHeader);
 app.component('ion-card-content', IonCardContent);
+app.component('ion-searchbar', IonSearchbar);
 
 import { addIcons } from 'ionicons';
-import { personCircleOutline, gridOutline, barChartOutline } from 'ionicons/icons';
+import { personCircleOutline, gridOutline, barChartOutline, peopleOutline,exitOutline } from 'ionicons/icons';
 
 addIcons({
   'person-circle-outline': personCircleOutline,
   'grid-outline': gridOutline,
   'bar-chart-outline': barChartOutline,
+  'people-outline': peopleOutline,
+  'exit-outline': exitOutline,
+
 });
